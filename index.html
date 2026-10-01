@@ -205,8 +205,58 @@
     background: var(--thumb);
     border-bottom: 1px solid var(--line);
   }
-  .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .6s ease; }
+  .thumb img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    opacity: 0;
+    transition: opacity .45s ease, transform .6s ease;
+  }
+  .thumb img.is-active { opacity: 1; }
   .card:hover .thumb img { transform: scale(1.025); }
+  /* Pattern switcher (only rendered when a generator has 2+ thumbnails) */
+  .thumb-ui {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    z-index: 1;                 /* above the card-wide link */
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 34px 14px 8px 16px;
+    background: linear-gradient(to top, rgba(10, 12, 16, .6), rgba(10, 12, 16, 0));
+    color: #fff;
+    font-family: var(--serif-en);
+    font-size: 12px;
+    letter-spacing: .2em;
+    text-transform: uppercase;
+    pointer-events: none;       /* let clicks fall through to the card link */
+  }
+  .thumb-info { display: flex; gap: 10px; align-items: baseline; white-space: nowrap; }
+  .thumb-label { opacity: .8; }
+  .thumb-dots { display: flex; pointer-events: auto; }
+  .thumb-dot {
+    appearance: none;
+    background: none;
+    border: 0;
+    cursor: pointer;
+    padding: 12px 4px;
+  }
+  .thumb-dot::before {
+    content: "";
+    display: block;
+    width: 20px;
+    height: 2px;
+    background: rgba(255, 255, 255, .45);
+    transition: background-color .25s ease, width .25s ease;
+  }
+  .thumb-dot:hover::before { background: rgba(255, 255, 255, .8); }
+  .thumb-dot[aria-current="true"]::before { background: #fff; width: 28px; }
+  .thumb-dot:focus-visible { outline: 2px solid #fff; outline-offset: -2px; }
+  @media (pointer: coarse) { .thumb-dot { padding: 16px 5px; } }
   .thumb.placeholder {
     display: grid;
     place-items: center;
@@ -266,7 +316,7 @@
   }
   .langs .langs-list { display: flex; flex-wrap: wrap; gap: 4px 14px; color: var(--ink); list-style: none; }
   .card { position: relative; cursor: pointer; }
-  .cta { color: inherit; text-decoration: none; }
+  .cta { color: inherit; text-decoration: none; touch-action: pan-y; }
   .cta::after { content: ""; position: absolute; inset: 0; }
   .cta:focus-visible { outline: none; }
   .card:has(.cta:focus-visible) { outline: 2px solid var(--ink); outline-offset: 4px; }
@@ -391,6 +441,7 @@
       hashtagText: "投稿時に<wbr>お使いいただけると<wbr>嬉しいです。",
       copyLabel: "#KomaLab をコピー",
       copied: "コピーしました",
+      patternLabel: "パターン",
       langsLabel: "対応言語",
       previewAlt: " の出力例",
       notes: [
@@ -409,6 +460,7 @@
       hashtagText: "I'd be happy if you'd use it when you post.",
       copyLabel: "Copy #KomaLab",
       copied: "Copied",
+      patternLabel: "Pattern",
       langsLabel: "Languages",
       previewAlt: " sample output",
       notes: [
@@ -427,6 +479,7 @@
       hashtagText: "게시할 때 사용해 주시면 기쁩니다.",
       copyLabel: "#KomaLab 복사",
       copied: "복사됨",
+      patternLabel: "패턴",
       langsLabel: "지원 언어",
       previewAlt: " 출력 예시",
       notes: [
@@ -442,7 +495,8 @@
   // Generator list. To add a new generator, append one object here.
   //   url:    public URL of the generator
   //   readme: URL of the generator's README
-  //   thumb:  path to a thumbnail image in this repo (empty = placeholder)
+  //   thumbs: thumbnail images in this repo, e.g. [{ src: "assets/a.jpg", label: "CLASSIFIED" }]
+  //           2+ images get a pattern switcher; empty = placeholder
   //   langs:  languages the generator supports (subset of LANGS)
   //   sub / desc / tags: per-language text
   // ------------------------------------------------------------
@@ -452,7 +506,12 @@
       titleEn: "CASE FILE",
       url: "https://ichigo-git.github.io/ffxiv-card-generator/",
       readme: "https://github.com/ichigo-git/ffxiv-card-generator/blob/main/README.md",
-      thumb: "assets/CASE_FILE_001.jpg",
+      thumbs: [
+        { src: "assets/CASE_FILE_001.jpg", label: "" },
+        // TODO: add the other two patterns once the files are in assets/, e.g.
+        // { src: "assets/CASE_FILE_002.jpg", label: "TACTICAL" },
+        // { src: "assets/CASE_FILE_003.jpg", label: "" },
+      ],
       langs: ["ja", "en"],
       sub: {
         ja: "機密書類ジェネレーター",
@@ -475,7 +534,7 @@
       titleEn: "COURT",
       url: "https://ichigo-git.github.io/ffxiv-court-generator/",
       readme: "https://github.com/ichigo-git/ffxiv-court-generator/blob/main/README.md",
-      thumb: "",  // TODO: e.g. "assets/playing-card.jpg"
+      thumbs: [],  // TODO: e.g. [{ src: "assets/COURT_001.jpg", label: "" }]
       langs: ["ja", "en", "ko"],
       sub: {
         ja: "トランプカードモチーフのジェネレーター",
@@ -537,14 +596,82 @@
       const a = document.createElement("div");
       a.className = "card" + (firstRender ? "" : " in");
 
+      const thumbs = g.thumbs || [];
       const thumb = document.createElement("div");
-      if (g.thumb) {
+      let swiped = false;
+      if (thumbs.length) {
         thumb.className = "thumb";
-        const img = document.createElement("img");
-        img.src = g.thumb;
-        img.alt = g.sub[currentLang] + t.previewAlt;
-        img.loading = "lazy";
-        thumb.appendChild(img);
+        if (typeof g.idx !== "number" || g.idx >= thumbs.length) g.idx = 0;   // keeps the chosen pattern across language switches
+
+        const imgs = thumbs.map((tb, i) => {
+          const img = document.createElement("img");
+          img.src = tb.src;
+          img.alt = g.sub[currentLang] + t.previewAlt + (tb.label ? " — " + tb.label : "");
+          img.decoding = "async";
+          if (i !== g.idx) img.loading = "lazy";
+          thumb.appendChild(img);
+          return img;
+        });
+
+        let countEl = null, labelEl = null, dots = [];
+        const pad = (n) => String(n).padStart(2, "0");
+        const show = (n) => {
+          g.idx = (n + thumbs.length) % thumbs.length;
+          imgs.forEach((im, i) => im.classList.toggle("is-active", i === g.idx));
+          if (countEl) {
+            countEl.textContent = pad(g.idx + 1) + " / " + pad(thumbs.length);
+            labelEl.textContent = thumbs[g.idx].label || "";
+            dots.forEach((d, i) => d.setAttribute("aria-current", String(i === g.idx)));
+          }
+        };
+
+        if (thumbs.length > 1) {
+          const ui = mk("div", "thumb-ui");
+          const info = mk("div", "thumb-info");
+          countEl = mk("span", "thumb-count");
+          labelEl = mk("span", "thumb-label");
+          info.appendChild(countEl);
+          info.appendChild(labelEl);
+          ui.appendChild(info);
+
+          const dotsWrap = mk("div", "thumb-dots");
+          dotsWrap.setAttribute("role", "group");
+          thumbs.forEach((tb, i) => {
+            const d = mk("button", "thumb-dot");
+            d.type = "button";
+            d.setAttribute("aria-label", t.patternLabel + " " + (i + 1) + (tb.label ? " — " + tb.label : ""));
+            d.addEventListener("click", () => show(i));
+            dots.push(d);
+            dotsWrap.appendChild(d);
+          });
+          ui.appendChild(dotsWrap);
+          thumb.appendChild(ui);
+
+          // Swipe left/right on the thumbnail (touch / pen)
+          let sx = 0, sy = 0, tracking = false;
+          a.addEventListener("pointerdown", (e) => {
+            const r = thumb.getBoundingClientRect();
+            tracking = e.pointerType !== "mouse" &&
+              e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
+            sx = e.clientX; sy = e.clientY;
+          });
+          a.addEventListener("pointerup", (e) => {
+            if (!tracking) return;
+            tracking = false;
+            const dx = e.clientX - sx, dy = e.clientY - sy;
+            if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+              show(g.idx + (dx < 0 ? 1 : -1));
+              swiped = true;
+              setTimeout(() => { swiped = false; }, 400);
+            }
+          });
+          a.addEventListener("pointercancel", () => { tracking = false; });
+          // A swipe must not also open the generator
+          a.addEventListener("click", (e) => {
+            if (swiped) { e.preventDefault(); e.stopPropagation(); }
+          }, true);
+        }
+        show(g.idx);
       } else {
         thumb.className = "thumb placeholder";
         thumb.textContent = "Preview";
@@ -590,6 +717,8 @@
       const cta = document.createElement("a");
       cta.className = "cta";
       cta.href = g.url;
+      cta.target = "_blank";
+      cta.rel = "noopener";
       cta.setAttribute("aria-label", g.titleEn + " — " + g.sub[currentLang]);
       cta.appendChild(mk("span", "", "Open"));
       cta.appendChild(mk("span", "arrow", "→"));
