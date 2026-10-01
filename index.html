@@ -1,0 +1,682 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FFXIV Character Card Generators</title>
+<meta name="description" content="FF14のキャラクター紹介カードをブラウザで作れる、ファンメイドのジェネレーター集。">
+<meta name="robots" content="index,follow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Noto+Sans+JP:wght@400;500&family=Noto+Serif+JP:wght@400;500&family=Noto+Sans+KR:wght@400;500&family=Noto+Serif+KR:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #e8e9ea;
+    --ink: #17181a;
+    --ink-soft: #5c5e61;
+    --line: rgba(23, 24, 26, .16);
+    --panel: #f5f5f4;
+    --accent: #17181a;
+    --thumb: #d8d9da;
+    --stripe: rgba(23, 24, 26, .05);
+    --shadow: rgba(23, 24, 26, .35);
+    --serif-en: "Cormorant Garamond", "Noto Serif JP", "Noto Serif KR", serif;
+    --serif-jp: "Noto Serif JP", "Noto Serif KR", serif;
+    --sans: "Noto Sans JP", "Noto Sans KR", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    line-height: 1.8;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: inherit; }
+  body { font-variant-numeric: lining-nums; }
+
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+
+  /* Header */
+  header.top {
+    padding: 28px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  header.top .wrap { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; }
+  .wordmark {
+    font-family: var(--serif-en);
+    font-size: 15px;
+    letter-spacing: .28em;
+    text-transform: uppercase;
+  }
+  .header-note { font-size: 12px; color: var(--ink-soft); letter-spacing: .08em; }
+  .header-right { display: flex; align-items: baseline; gap: 28px; }
+
+  /* Language switcher */
+  .lang-switch { display: flex; align-items: center; gap: 0; font-family: var(--serif-en); }
+  .lang-switch button {
+    appearance: none;
+    background: none;
+    border: 0;
+    border-bottom: 1px solid transparent;
+    color: var(--ink-soft);
+    cursor: pointer;
+    font: inherit;
+    font-size: 14px;
+    letter-spacing: .2em;
+    padding: 4px 10px 3px;
+    transition: color .2s ease, border-color .2s ease;
+  }
+  .lang-switch button + button { border-left: 0; position: relative; }
+  .lang-switch button + button::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 50%;
+    width: 1px; height: 11px;
+    margin-top: -5px;
+    background: var(--line);
+  }
+  .lang-switch button:hover { color: var(--ink); }
+  .lang-switch button[aria-pressed="true"] { color: var(--ink); border-bottom-color: var(--ink); }
+  .lang-switch button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+  /* Hero */
+  .hero { padding: 96px 0 72px; }
+  .eyebrow {
+    font-family: var(--serif-en);
+    font-size: 14px;
+    letter-spacing: .32em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-bottom: 28px;
+  }
+  .hero h1 {
+    font-family: var(--serif-en);
+    font-weight: 500;
+    font-size: clamp(40px, 7.2vw, 84px);
+    line-height: 1.08;
+    letter-spacing: .01em;
+  }
+  .hero h1 em { font-style: italic; font-weight: 400; }
+  .lead {
+    margin-top: 32px;
+    max-width: 34em;
+    font-family: var(--serif-jp);
+    font-size: clamp(15px, 2vw, 17px);
+    color: var(--ink-soft);
+  }
+  .lead-main {
+    color: var(--ink);
+    white-space: pre-line;
+    font-size: clamp(16px, 2.2vw, 19px);
+    max-width: 40em;
+    text-wrap: pretty;
+  }
+  .lead-how {
+    margin-top: 22px;
+    padding-top: 22px;
+    border-top: 1px solid var(--line);
+  }
+
+  .lead { white-space: pre-line; }
+  .lead-how { max-width: 42em; }
+
+  /* Japanese: break only at phrase boundaries (<wbr>) and punctuation */
+  html[lang="ja"] .lead,
+  html[lang="ja"] .desc,
+  html[lang="ja"] .hashtag-note,
+  html[lang="ja"] .notes,
+  html[lang="ko"] .lead,
+  html[lang="ko"] .desc,
+  html[lang="ko"] .hashtag-note,
+  html[lang="ko"] .notes {
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+
+  /* Section title */
+  .section-head {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    margin-bottom: 36px;
+  }
+  .section-head span {
+    font-family: var(--serif-en);
+    font-size: 13px;
+    letter-spacing: .3em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .section-head::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+
+  /* Cards */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 40px;
+    padding-bottom: 112px;
+  }
+
+  /* Hashtag: a thin pill under the lead (tap to copy) */
+  .hashtag-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin-top: 26px; }
+  .tag-pill {
+    appearance: none;
+    display: inline-grid;
+    place-items: center;
+    background: transparent;
+    border: 1px solid rgba(23, 24, 26, .38);
+    border-radius: 999px;
+    color: var(--ink);
+    cursor: pointer;
+    font-family: var(--serif-en);
+    font-size: 17px;
+    letter-spacing: .08em;
+    line-height: 1.3;
+    padding: 5px 20px 4px;
+    transition: border-color .25s ease, background-color .25s ease;
+  }
+  .tag-pill > span { grid-area: 1 / 1; transition: opacity .2s ease; }
+  .tag-pill .tag-done { opacity: 0; font-size: 13px; letter-spacing: .12em; }
+  .tag-pill.copied .tag-text { opacity: 0; }
+  .tag-pill.copied .tag-done { opacity: 1; }
+  .tag-pill:hover { border-color: var(--ink); background-color: rgba(23, 24, 26, .04); }
+  .tag-pill:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+  .hashtag-note { font-size: 12.5px; line-height: 1.8; color: var(--ink-soft); }
+
+  .card {
+    display: flex;
+    flex-direction: column;
+    text-decoration: none;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    transition: transform .35s ease, box-shadow .35s ease;
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  .card.in { opacity: 1; transform: none; transition: opacity .7s ease, transform .7s ease, box-shadow .35s ease; }
+  .card.in:hover { transform: translateY(-4px); box-shadow: 0 18px 40px -18px var(--shadow); }
+
+  .thumb {
+    position: relative;
+    aspect-ratio: 4 / 3;
+    overflow: hidden;
+    background: var(--thumb);
+    border-bottom: 1px solid var(--line);
+  }
+  .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .6s ease; }
+  .card:hover .thumb img { transform: scale(1.025); }
+  .thumb.placeholder {
+    display: grid;
+    place-items: center;
+    background:
+      repeating-linear-gradient(135deg, transparent 0 14px, var(--stripe) 14px 15px),
+      var(--thumb);
+    color: var(--ink-soft);
+    font-family: var(--serif-en);
+    letter-spacing: .24em;
+    font-size: 13px;
+    text-transform: uppercase;
+  }
+
+  .body { padding: 28px 28px 30px; display: flex; flex-direction: column; flex: 1; }
+  .no { font-family: var(--serif-en); font-size: 13px; letter-spacing: .26em; color: var(--ink-soft); }
+  .title-en {
+    font-family: var(--serif-en);
+    font-weight: 500;
+    font-size: 32px;
+    line-height: 1.15;
+    margin-top: 10px;
+  }
+  .title-jp {
+    font-family: var(--serif-jp);
+    font-size: 14px;
+    color: var(--ink-soft);
+    margin-top: 4px;
+  }
+  .desc { margin-top: 18px; font-size: 14px; line-height: 1.9; }
+  /* Tags, languages and CTA are pinned to the card bottom so they line up across cards */
+  .desc { margin-bottom: 20px; }
+  .tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: auto; list-style: none; }
+  .tags li {
+    font-size: 11px;
+    letter-spacing: .06em;
+    padding: 3px 10px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    color: var(--ink-soft);
+  }
+  .langs {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 6px 14px;
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
+    font-size: 12.5px;
+    color: var(--ink-soft);
+  }
+  .langs .langs-label {
+    font-family: var(--serif-en);
+    font-size: 11px;
+    letter-spacing: .22em;
+    text-transform: uppercase;
+  }
+  .langs .langs-list { display: flex; flex-wrap: wrap; gap: 4px 14px; color: var(--ink); list-style: none; }
+  .card { position: relative; cursor: pointer; }
+  .cta { color: inherit; text-decoration: none; }
+  .cta::after { content: ""; position: absolute; inset: 0; }
+  .cta:focus-visible { outline: none; }
+  .card:has(.cta:focus-visible) { outline: 2px solid var(--ink); outline-offset: 4px; }
+  .meta { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+  .readme {
+    position: relative;
+    z-index: 1;
+    font-family: var(--serif-en);
+    font-size: 12px;
+    letter-spacing: .16em;
+    color: var(--ink-soft);
+    text-decoration: none;
+    border-bottom: 1px solid var(--line);
+    transition: color .2s ease, border-color .2s ease;
+  }
+  .readme::after { content: " ↗"; letter-spacing: 0; }
+  .readme:hover { color: var(--ink); border-bottom-color: var(--ink); }
+  .readme:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+  .cta {
+    margin-top: 0;
+    padding-top: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-family: var(--serif-en);
+    font-size: 15px;
+    letter-spacing: .22em;
+    text-transform: uppercase;
+  }
+  .cta .arrow { display: inline-block; transition: transform .3s ease; }
+  .card:hover .cta .arrow { transform: translateX(6px); }
+  .cta::before { content: none; }
+
+  /* Footer */
+  footer { border-top: 1px solid var(--line); padding: 48px 0 56px; }
+  footer .wrap { display: grid; gap: 14px; }
+  .notes { list-style: none; font-size: 12.5px; line-height: 1.9; color: var(--ink-soft); }
+  .notes li::before { content: "—"; margin-right: .6em; }
+  .copy { font-family: var(--serif-en); font-size: 12px; letter-spacing: .14em; color: var(--ink-soft); margin-top: 8px; }
+
+  a:focus-visible { outline: 2px solid var(--ink); outline-offset: 4px; }
+
+  @media (max-width: 760px) {
+    .wrap { padding: 0 18px; }
+    .hero { padding: 64px 0 52px; }
+    .grid { grid-template-columns: 1fr; gap: 28px; padding-bottom: 80px; }
+    .body { padding: 22px 20px 24px; }
+    .title-en { font-size: 28px; }
+    .header-note { display: none; }
+    header.top { padding: 22px 0; }
+    .wordmark { font-size: 13px; letter-spacing: .2em; }
+    .lang-switch button { padding: 4px 8px 3px; letter-spacing: .14em; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .card, .card.in { opacity: 1; transform: none; transition: none; }
+    .thumb img, .cta .arrow { transition: none; }
+  }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <div class="wordmark">FFXIV Card Tools</div>
+    <div class="header-right">
+      <div class="header-note" data-i18n="headerNote"></div>
+      <div class="lang-switch" role="group" aria-label="Language" id="langSwitch">
+        <button type="button" data-lang="ja" aria-pressed="false" lang="ja" aria-label="日本語">JA</button>
+        <button type="button" data-lang="en" aria-pressed="false" lang="en" aria-label="English">EN</button>
+        <button type="button" data-lang="ko" aria-pressed="false" lang="ko" aria-label="한국어">KO</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section class="hero">
+    <div class="wrap">
+      <p class="eyebrow">Character Card Generators</p>
+      <h1>Make your <em>character</em><br>worth a card.</h1>
+      <p class="lead lead-main" data-i18n="leadSub"></p>
+      <p class="lead lead-how" data-i18n="lead"></p>
+      <div class="hashtag-row">
+        <button type="button" class="tag-pill" id="copyTag">
+          <span class="tag-text">#KomaLab</span>
+          <span class="tag-done" data-i18n="copied" aria-hidden="true"></span>
+        </button>
+        <p class="hashtag-note" data-i18n="hashtagText"></p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="section-head"><span>Generators</span></div>
+      <div class="grid" id="grid"></div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <ul class="notes" id="notes"></ul>
+    <p class="copy">© SQUARE ENIX / FINAL FANTASY XIV</p>
+  </div>
+</footer>
+
+<script>
+  // ------------------------------------------------------------
+  // UI strings (ja / en / ko).
+  // ------------------------------------------------------------
+  const LANGS = ["ja", "en", "ko"];
+  const LANG_NAMES = { ja: "日本語", en: "English", ko: "한국어" };
+
+  const I18N = {
+    ja: {
+      docTitle: "FFXIV Character Card Generators",
+      docDesc: "FF14のキャラクター紹介カードをブラウザで作れる、ファンメイドのジェネレーター集。",
+      headerNote: "ファンメイド · 非公式",
+      lead: "FF14の<wbr>キャラクター紹介カードを、<wbr>ブラウザだけで<wbr>作れる<wbr>非公式ジェネレーター集です。\n入力して、<wbr>画像として<wbr>保存するだけ。<wbr>お好きな<wbr>デザインで<wbr>遊んでください。",
+      leadSub: "スクリーンショットを、<wbr>少し特別な一枚に。\nキャラクターや<wbr>思い出のSSを、<wbr>引き立てるような<wbr>ジェネレーターを<wbr>目指しています。",
+      hashtagText: "投稿時に<wbr>お使いいただけると<wbr>嬉しいです。",
+      copyLabel: "#KomaLab をコピー",
+      copied: "コピーしました",
+      langsLabel: "対応言語",
+      previewAlt: " の出力例",
+      notes: [
+        "入力した内容や画像は<wbr>ブラウザ内でのみ<wbr>処理され、<wbr>サーバーには<wbr>送信されません。",
+        "当サイトは<wbr>非公式の<wbr>ファンメイドツールです。<wbr>株式会社スクウェア・エニックスとは<wbr>関係ありません。",
+        "FINAL FANTASY XIVおよび<wbr>関連する名称・画像等の権利は、<wbr>各権利者に<wbr>帰属します。",
+        "各ジェネレーターの<wbr>READMEに<wbr>従ってください。"
+      ]
+    },
+    en: {
+      docTitle: "FFXIV Character Card Generators",
+      docDesc: "Fan-made generators that let you create FFXIV character introduction cards right in your browser.",
+      headerNote: "Fan-made · Unofficial",
+      lead: "A collection of unofficial generators for creating FFXIV character introduction cards right in your browser. Fill in the form, save it as an image, and you're done. Play around with whichever design you like.",
+      leadSub: "Make a screenshot a little more special.\nWe aim to build generators that bring out your characters and the memories in your screenshots.",
+      hashtagText: "I'd be happy if you'd use it when you post.",
+      copyLabel: "Copy #KomaLab",
+      copied: "Copied",
+      langsLabel: "Languages",
+      previewAlt: " sample output",
+      notes: [
+        "Everything you enter, including images, is processed only in your browser and is never sent to a server.",
+        "This is an unofficial, fan-made tool and is not affiliated with SQUARE ENIX CO., LTD.",
+        "FINAL FANTASY XIV and all related names, images and other materials are the property of their respective rights holders.",
+        "Please follow the README of each generator."
+      ]
+    },
+    ko: {
+      docTitle: "FFXIV Character Card Generators",
+      docDesc: "FF14 캐릭터 소개 카드를 브라우저에서 만들 수 있는 팬메이드 제너레이터 모음.",
+      headerNote: "팬메이드 · 비공식",
+      lead: "FF14 캐릭터 소개 카드를 브라우저에서 만들 수 있는 비공식 제너레이터 모음입니다. 입력하고 이미지로 저장하기만 하면 됩니다. 마음에 드는 디자인으로 즐겨 보세요.",
+      leadSub: "스크린샷을 조금 특별한 한 장으로.\n캐릭터와 추억이 담긴 스크린샷을 돋보이게 해 주는 제너레이터를 목표로 하고 있습니다.",
+      hashtagText: "게시할 때 사용해 주시면 기쁩니다.",
+      copyLabel: "#KomaLab 복사",
+      copied: "복사됨",
+      langsLabel: "지원 언어",
+      previewAlt: " 출력 예시",
+      notes: [
+        "입력한 내용과 이미지는 브라우저 안에서만 처리되며 서버로 전송되지 않습니다.",
+        "이 사이트는 비공식 팬메이드 도구이며, 주식회사 스퀘어 에닉스와는 관련이 없습니다.",
+        "FINAL FANTASY XIV 및 관련 명칭·이미지 등의 권리는 각 권리자에게 귀속됩니다.",
+        "각 제너레이터의 README를 따라 주세요."
+      ]
+    }
+  };
+
+  // ------------------------------------------------------------
+  // Generator list. To add a new generator, append one object here.
+  //   url:    public URL of the generator
+  //   readme: URL of the generator's README
+  //   thumb:  path to a thumbnail image in this repo (empty = placeholder)
+  //   langs:  languages the generator supports (subset of LANGS)
+  //   sub / desc / tags: per-language text
+  // ------------------------------------------------------------
+  const GENERATORS = [
+    {
+      no: "01",
+      titleEn: "CASE FILE",
+      url: "https://ichigo-git.github.io/ffxiv-card-generator/",
+      readme: "https://github.com/ichigo-git/ffxiv-card-generator/blob/main/README.md",
+      thumb: "",  // TODO: e.g. "assets/case-file.jpg"
+      langs: ["ja", "en"],
+      sub: {
+        ja: "機密書類ジェネレーター",
+        en: "Classified-Document Generator",
+        ko: "기밀 문서 제너레이터"
+      },
+      desc: {
+        ja: "機密書類風の<wbr>キャラクター紹介カード。<wbr>プロフィールと<wbr>交流スタンスを<wbr>入力して、<wbr>スタンプ入り<wbr>書類風画像として<wbr>書き出せます。",
+        en: "A character introduction card styled as a classified document. Enter your profile and interaction style, and export it as a stamped, document-style image.",
+        ko: "기밀 문서 스타일의 캐릭터 소개 카드. 프로필과 교류 스타일을 입력해 도장이 찍힌 문서풍 이미지로 저장할 수 있습니다."
+      },
+      tags: {
+        ja: ["画像ダウンロード", "スマホ対応", "デザイン3タイプ"],
+        en: ["Image download", "Mobile-friendly", "3 designs"],
+        ko: ["이미지 저장", "모바일 지원", "디자인 3종"]
+      }
+    },
+    {
+      no: "02",
+      titleEn: "COURT",
+      url: "https://ichigo-git.github.io/ffxiv-court-generator/",
+      readme: "https://github.com/ichigo-git/ffxiv-court-generator/blob/main/README.md",
+      thumb: "",  // TODO: e.g. "assets/playing-card.jpg"
+      langs: ["ja", "en", "ko"],
+      sub: {
+        ja: "トランプカードモチーフのジェネレーター",
+        en: "Playing-Card-Themed Generator",
+        ko: "트럼프 카드 모티프 제너레이터"
+      },
+      desc: {
+        ja: "ゲーム内SSを<wbr>主役にした、<wbr>トランプカードモチーフの<wbr>キャラクターカード。<wbr>金の細い装飾で<wbr>仕上げています。",
+        en: "A playing-card-motif character card that puts your in-game screenshot front and center, finished with fine gold ornaments.",
+        ko: "게임 내 스크린샷을 주인공으로 한 트럼프 카드 모티프의 캐릭터 카드. 가는 금빛 장식으로 마무리했습니다."
+      },
+      tags: {
+        ja: ["画像ダウンロード", "スマホ対応", "デザイン2タイプ"],
+        en: ["Image download", "Mobile-friendly", "2 designs"],
+        ko: ["이미지 저장", "모바일 지원", "디자인 2종"]
+      }
+    }
+  ];
+
+  // ------------------------------------------------------------
+  // Language handling
+  // ------------------------------------------------------------
+  const STORAGE_KEY = "ffxiv-card-tools-lang";
+
+  function detectLang() {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (LANGS.includes(saved)) return saved;
+    } catch (e) { /* storage unavailable */ }
+    const nav = ((navigator.languages && navigator.languages[0]) || navigator.language || "ja").slice(0, 2).toLowerCase();
+    return LANGS.includes(nav) ? nav : "en";
+  }
+
+  const grid = document.getElementById("grid");
+  const notesEl = document.getElementById("notes");
+  let currentLang = detectLang();
+  let firstRender = true;
+
+  const mk = (tag, cls, text) => {
+    const el = document.createElement(tag);
+    if (cls) el.className = cls;
+    if (text) el.textContent = text;
+    return el;
+  };
+
+  // Set text that may contain <wbr> line-break hints (safe: built from nodes, no innerHTML)
+  function setRich(el, str) {
+    el.textContent = "";
+    str.split("<wbr>").forEach((part, i) => {
+      if (i) el.appendChild(document.createElement("wbr"));
+      el.appendChild(document.createTextNode(part));
+    });
+  }
+
+  function renderCards(t) {
+    grid.textContent = "";
+
+    GENERATORS.forEach((g) => {
+      const a = document.createElement("div");
+      a.className = "card" + (firstRender ? "" : " in");
+
+      const thumb = document.createElement("div");
+      if (g.thumb) {
+        thumb.className = "thumb";
+        const img = document.createElement("img");
+        img.src = g.thumb;
+        img.alt = g.sub[currentLang] + t.previewAlt;
+        img.loading = "lazy";
+        thumb.appendChild(img);
+      } else {
+        thumb.className = "thumb placeholder";
+        thumb.textContent = "Preview";
+      }
+      a.appendChild(thumb);
+
+      const body = document.createElement("div");
+      body.className = "body";
+
+      // Top line: card number on the left, README link on the right
+      // (the link sits above the card-wide link via z-index)
+      const meta = mk("div", "meta");
+      meta.appendChild(mk("span", "no", "No. " + g.no));
+      const readme = mk("a", "readme", "README");
+      readme.href = g.readme;
+      readme.target = "_blank";
+      readme.rel = "noopener";
+      meta.appendChild(readme);
+      body.appendChild(meta);
+      body.appendChild(mk("h2", "title-en", g.titleEn));
+      body.appendChild(mk("div", "title-jp", g.sub[currentLang]));
+      const descEl = mk("p", "desc");
+      setRich(descEl, g.desc[currentLang]);
+      body.appendChild(descEl);
+
+      const tags = mk("ul", "tags");
+      g.tags[currentLang].forEach((x) => tags.appendChild(mk("li", "", x)));
+      body.appendChild(tags);
+
+      // Supported languages
+      const langs = mk("div", "langs");
+      langs.appendChild(mk("span", "langs-label", t.langsLabel));
+      const list = mk("ul", "langs-list");
+      g.langs.forEach((code) => {
+        const li = mk("li", "", LANG_NAMES[code]);
+        li.lang = code;
+        list.appendChild(li);
+      });
+      langs.appendChild(list);
+      body.appendChild(langs);
+
+      // The CTA is the card's main link; its ::after stretches over the whole card
+      const cta = document.createElement("a");
+      cta.className = "cta";
+      cta.href = g.url;
+      cta.setAttribute("aria-label", g.titleEn + " — " + g.sub[currentLang]);
+      cta.appendChild(mk("span", "", "Open"));
+      cta.appendChild(mk("span", "arrow", "→"));
+      body.appendChild(cta);
+
+      a.appendChild(body);
+      grid.appendChild(a);
+    });
+
+    // Staggered fade-in on first load only
+    if (firstRender) {
+      requestAnimationFrame(() => {
+        document.querySelectorAll(".card").forEach((el, i) => {
+          setTimeout(() => el.classList.add("in"), 120 + i * 120);
+        });
+      });
+    }
+  }
+
+  function applyLang(lang) {
+    currentLang = lang;
+    const t = I18N[lang];
+
+    document.documentElement.lang = lang;
+    document.title = t.docTitle;
+    const meta = document.querySelector('meta[name="description"]');
+    if (meta) meta.setAttribute("content", t.docDesc);
+
+    document.querySelectorAll("[data-i18n]").forEach((el) => {
+      setRich(el, t[el.dataset.i18n]);
+    });
+
+    notesEl.textContent = "";
+    t.notes.forEach((n) => {
+      const li = mk("li");
+      setRich(li, n);
+      notesEl.appendChild(li);
+    });
+
+    document.querySelectorAll("#langSwitch button").forEach((b) => {
+      b.setAttribute("aria-pressed", String(b.dataset.lang === lang));
+    });
+
+    copyBtn.setAttribute("aria-label", t.copyLabel);
+    copyBtn.title = t.copyLabel;
+
+    renderCards(t);
+    firstRender = false;
+  }
+
+  document.getElementById("langSwitch").addEventListener("click", (e) => {
+    const btn = e.target.closest("button[data-lang]");
+    if (!btn) return;
+    const lang = btn.dataset.lang;
+    if (lang === currentLang) return;
+    try { localStorage.setItem(STORAGE_KEY, lang); } catch (err) { /* ignore */ }
+    applyLang(lang);
+  });
+
+  // Copy hashtag to clipboard (tap the pill)
+  const copyBtn = document.getElementById("copyTag");
+  let copyTimer = null;
+  copyBtn.addEventListener("click", async () => {
+    const text = "#KomaLab";
+    let ok = false;
+    try {
+      await navigator.clipboard.writeText(text);
+      ok = true;
+    } catch (e) {
+      // Fallback for restricted contexts
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.setAttribute("readonly", "");
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      try { ok = document.execCommand("copy"); } catch (err) { ok = false; }
+      document.body.removeChild(ta);
+    }
+    if (!ok) return;
+    copyBtn.classList.add("copied");
+    clearTimeout(copyTimer);
+    copyTimer = setTimeout(() => copyBtn.classList.remove("copied"), 1400);
+  });
+
+  applyLang(currentLang);
+</script>
+</body>
+</html>
